@@ -1,0 +1,37 @@
+name: Auto-Deploy Node.js App for production
+
+# This tells GitHub to run this script ONLY when code is pushed/merged to 'main'
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # This step copies all your files from GitHub to your isolated directory on the VM
+      - name: Copy files to Azure VM
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.AZURE_HOST }}
+          username: ${{ secrets.AZURE_USER }}
+          key: ${{ secrets.AZURE_SSH_KEY }}
+          source: "."
+          target: "/home/azureuser/node-apps/first-app/production"
+
+      # This step logs into the VM, installs new packages, and restarts the app
+      - name: Install Dependencies and Restart Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AZURE_HOST }}
+          username: ${{ secrets.AZURE_USER }}
+          key: ${{ secrets.AZURE_SSH_KEY }}
+          script: |
+            cd /home/azureuser/node-apps/first-app/production
+            npm install
+            # If the app is already running, restart it. If not, start it for the first time.
+            pm2 restart my-node-backend || pm2 start index.js --name "my-node-backend"
